@@ -8,6 +8,7 @@ import {
 } from 'recharts'
 import { TrendingUp, Calendar, Filter, Download, Brain, Activity, Zap } from 'lucide-react'
 import FloatingCard from '@/components/anti-gravity/FloatingCard'
+import { useAuthStore } from '@/lib/store/auth-store'
 
 const moodData = [
     { date: '2025-12-14', mood: 4, stress: 2, sleep: 7 },
@@ -28,13 +29,39 @@ const emotionDistribution = [
 ]
 
 export default function InsightsPage() {
+    const { user } = useAuthStore()
     const [timeRange, setTimeRange] = useState('7d')
     const [isMounted, setIsMounted] = useState(false)
+    const [chartData, setChartData] = useState(moodData)
+    const [isLoading, setIsLoading] = useState(true)
 
-    // Ensure charts only render on client to avoid hydration errors and improve speed
     useEffect(() => {
         setIsMounted(true)
-    }, [])
+        const fetchMoodHistory = async () => {
+            if (!user) return
+            try {
+                const response = await fetch(`http://localhost:8008/v1/mood/history/${user.user_id}`)
+                if (response.ok) {
+                    const data = await response.json()
+                    // Transform API data to chart format
+                    if (data.history && data.history.length > 0) {
+                        const formatted = data.history.slice(-7).map((entry: any) => ({
+                            date: new Date(entry.timestamp).toLocaleDateString(),
+                            mood: entry.score,
+                            stress: entry.score < 3 ? 4 : 1, // Mock stress inverse to mood
+                            sleep: 7
+                        }))
+                        setChartData(formatted)
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch insights:", err)
+            } finally {
+                setIsLoading(false)
+            }
+        }
+        fetchMoodHistory()
+    }, [user])
 
     return (
         <div className="space-y-8 pb-12">
@@ -69,9 +96,28 @@ export default function InsightsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
-                    { label: 'Avg Mood Score', value: '4.2', icon: TrendingUp, color: 'text-green-500' },
-                    { label: 'Wellness Consistency', value: '88%', icon: Activity, color: 'text-blue-500' },
-                    { label: 'AI Resilience Score', value: '76/100', icon: Brain, color: 'text-purple-500' },
+                    {
+                        label: 'Avg Mood Score',
+                        value: chartData.length > 0
+                            ? (chartData.reduce((acc, curr) => acc + curr.mood, 0) / chartData.length).toFixed(1)
+                            : '4.2',
+                        icon: TrendingUp,
+                        color: 'text-green-500'
+                    },
+                    {
+                        label: 'Wellness Consistency',
+                        value: chartData.length > 4 ? '92%' : '65%',
+                        icon: Activity,
+                        color: 'text-blue-500'
+                    },
+                    {
+                        label: 'AI Resilience Score',
+                        value: chartData.length > 0
+                            ? Math.min(60 + chartData.length * 5, 95) + '/100'
+                            : '76/100',
+                        icon: Brain,
+                        color: 'text-purple-500'
+                    },
                 ].map((stat, i) => (
                     <FloatingCard key={i} delay={i * 0.05}>
                         <div className="flex items-start justify-between">
@@ -87,6 +133,71 @@ export default function InsightsPage() {
                 ))}
             </div>
 
+            <div className="flex justify-end gap-4">
+                <button
+                    onClick={async () => {
+                        // Request Fuzzy Logic Analysis
+                        const authStore = useAuthStore.getState();
+                        if (!authStore.token) return;
+
+                        try {
+                            const avgMood = chartData.reduce((acc, curr) => acc + curr.mood, 0) / (chartData.length || 1);
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/analysis/fuzzy`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authStore.token}`
+                                },
+                                body: JSON.stringify({
+                                    mood_score: avgMood * 2, // Scale to 0-10
+                                    sentiment_score: 0.2,    // Mock sentiment
+                                    energy_level: 6          // Mock energy
+                                })
+                            });
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                alert(`Fuzzy Logic Assessment:\nStatus: ${data.result.label}\nRisk: ${data.result.riskLevel}\nVitality Score: ${data.result.vitalityScore}`);
+                            }
+                        } catch (e) {
+                            console.error("Fuzzy analysis failed:", e);
+                        }
+                    }}
+                    className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/25"
+                >
+                    <Zap size={20} />
+                    Run Fuzzy Logic Analysis
+                </button>
+
+                <button
+                    onClick={async () => {
+                        if (!user) return;
+                        setIsLoading(true);
+                        try {
+                            const res = await fetch('http://localhost:8009/v1/reports/generate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    user_id: user.user_id,
+                                    username: user.name || user.username,
+                                    fusion_result: { risk_level: 'low', final_score: 4.2 }
+                                })
+                            });
+                            if (res.ok) alert("Professional Wellness Report generated and saved to your profile!");
+                        } catch (e) {
+                            console.error(e);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }}
+                    disabled={isLoading}
+                    className="px-6 py-3 bg-serenity-600 text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-serenity-700 transition-all shadow-lg hover:shadow-serenity-500/25 disabled:opacity-50"
+                >
+                    <Download size={20} />
+                    {isLoading ? 'Generating...' : 'Generate Full Wellness Report'}
+                </button>
+            </div>
+
             {isMounted && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <FloatingCard className="lg:col-span-8 h-[450px]" delay={0.2}>
@@ -97,7 +208,7 @@ export default function InsightsPage() {
                             </div>
                         </div>
                         <ResponsiveContainer width="100%" height="85%">
-                            <AreaChart data={moodData}>
+                            <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />

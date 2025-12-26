@@ -1,255 +1,98 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
-import api from '@/lib/api'
-import AnimatedCard from '@/components/animations/AnimatedCard'
+import Link from 'next/link'
+import { Brain, PenTool, Sparkles, ArrowRight, Activity, Zap } from 'lucide-react'
+import FloatingCard from '@/components/anti-gravity/FloatingCard'
+
+const features = [
+    {
+        title: 'Mood Tracker',
+        description: 'Log your emotional state and track patterns over time.',
+        icon: Activity,
+        href: '/mood',
+        color: 'bg-amber-500/10 text-amber-600',
+        stats: 'Active logs: 128'
+    },
+    {
+        title: 'Daily Journal',
+        description: 'Reflect on your day and discover personal insights.',
+        icon: PenTool,
+        href: '/journal',
+        color: 'bg-serenity-500/10 text-serenity-600',
+        stats: 'Total entries: 45'
+    },
+    {
+        title: 'Meditation Room',
+        description: 'Mindfulness exercises and AI-curated coping kits.',
+        icon: Zap,
+        href: '/meditation',
+        color: 'bg-purple-500/10 text-purple-600',
+        stats: 'Minutes today: 15'
+    }
+]
 
 export default function WellnessPage() {
-    const [moodInput, setMoodInput] = useState('')
-    const [moodResult, setMoodResult] = useState<any>(null)
-    const [moodHistory, setMoodHistory] = useState<any[]>([])
-    const [journalPrompt, setJournalPrompt] = useState('')
-    const [copingStrategies, setCopingStrategies] = useState('')
-    const [checkinQuestions, setCheckinQuestions] = useState<string[]>([])
-    const [activeTab, setActiveTab] = useState('mood')
-    const [userId] = useState(1) // TODO: Get from auth
-
-    useEffect(() => {
-        loadMoodHistory()
-    }, [])
-
-    const loadMoodHistory = async () => {
-        try {
-            const data = await api.getMoodHistory(userId)
-            setMoodHistory(data.history || [])
-        } catch (error) {
-            console.error('Failed to load mood history:', error)
-        }
-    }
-
-    const handleMoodSubmit = async () => {
-        if (!moodInput.trim()) return
-
-        try {
-            const result = await api.trackMood(userId, moodInput)
-            setMoodResult(result)
-            setMoodInput('')
-            loadMoodHistory()
-        } catch (error) {
-            console.error('Failed to track mood:', error)
-        }
-    }
-
-    const loadJournalingPrompt = async () => {
-        try {
-            const data = await api.getJournalingPrompt()
-            setJournalPrompt(data.prompt)
-        } catch (error) {
-            console.error('Failed to load prompt:', error)
-        }
-    }
-
-    const loadCopingStrategies = async (category: string) => {
-        try {
-            const data = await api.getCopingStrategies(category)
-            setCopingStrategies(data.strategies)
-        } catch (error) {
-            console.error('Failed to load strategies:', error)
-        }
-    }
-
-    const loadCheckinQuestions = async () => {
-        try {
-            const data = await api.getDailyCheckinQuestions()
-            setCheckinQuestions(data.questions || [])
-        } catch (error) {
-            console.error('Failed to load questions:', error)
-        }
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow">
-                <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Wellness Center</h1>
-                    <p className="text-gray-600 mt-1">Daily check-ins, journaling, and coping strategies</p>
+        <div className="space-y-12 pb-20 max-w-7xl mx-auto px-4">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center space-y-4 max-w-2xl mx-auto mt-12"
+            >
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-serenity-500/10 text-serenity-600 rounded-full text-sm font-bold tracking-wider mb-2">
+                    <Sparkles size={16} />
+                    YOUR WELLNESS CENTER
                 </div>
-            </header>
+                <h1 className="text-5xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-400">
+                    Nurture Your Mind
+                </h1>
+                <p className="text-xl text-muted-foreground">
+                    Discover a suite of AI-enhanced tools designed to support your mental wellbeing journey.
+                </p>
+            </motion.div>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Tabs */}
-                <div className="mb-8">
-                    <div className="border-b border-gray-200">
-                        <nav className="-mb-px flex space-x-8">
-                            {[
-                                { id: 'mood', label: 'Mood Tracking' },
-                                { id: 'journal', label: 'Journaling' },
-                                { id: 'coping', label: 'Coping Strategies' },
-                                { id: 'checkin', label: 'Daily Check-in' }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
-                                            ? 'border-blue-600 text-blue-600'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </nav>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+                {features.map((feature, i) => (
+                    <Link href={feature.href} key={i}>
+                        <FloatingCard className="h-full hover:scale-[1.02] transition-all cursor-pointer group" delay={i * 0.1}>
+                            <div className={`p-4 rounded-2xl w-fit ${feature.color} mb-6`}>
+                                <feature.icon size={28} />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3">{feature.title}</h3>
+                            <p className="text-muted-foreground mb-8 leading-relaxed">
+                                {feature.description}
+                            </p>
+                            <div className="pt-6 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-sm font-medium">
+                                <span className="text-muted-foreground">{feature.stats}</span>
+                                <span className="flex items-center gap-2 text-serenity-600 group-hover:gap-3 transition-all">
+                                    Open Tools <ArrowRight size={16} />
+                                </span>
+                            </div>
+                        </FloatingCard>
+                    </Link>
+                ))}
+            </div>
+
+            <FloatingCard className="max-w-4xl mx-auto bg-gradient-to-r from-serenity-600/5 to-aurora-600/5 border-serenity-500/20 mt-16" delay={0.4}>
+                <div className="flex flex-col md:flex-row items-center gap-8 py-4">
+                    <div className="p-6 bg-white dark:bg-white/10 rounded-3xl shadow-xl">
+                        <Brain size={48} className="text-serenity-500" />
+                    </div>
+                    <div className="flex-1 space-y-4 text-center md:text-left">
+                        <h3 className="text-2xl font-bold">Unlock Personal AI Insights</h3>
+                        <p className="text-muted-foreground">
+                            Connect your tracking data to our AI engine to receive personalized recommendations and trend analysis.
+                        </p>
+                        <Link href="/insights">
+                            <span className="inline-block px-6 py-3 bg-serenity-600 text-white rounded-xl font-bold hover:bg-serenity-700 transition-all cursor-pointer">
+                                View Full Analytics
+                            </span>
+                        </Link>
                     </div>
                 </div>
-
-                {/* Mood Tracking Tab */}
-                {activeTab === 'mood' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                        <AnimatedCard>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">How are you feeling today?</h2>
-                            <div className="space-y-4">
-                                <textarea
-                                    value={moodInput}
-                                    onChange={(e) => setMoodInput(e.target.value)}
-                                    placeholder="Describe your mood... (e.g., I'm feeling anxious, happy, stressed, etc.)"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    rows={3}
-                                />
-                                <button
-                                    onClick={handleMoodSubmit}
-                                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                                >
-                                    Track Mood
-                                </button>
-                            </div>
-
-                            {moodResult && (
-                                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                                    <p className="text-gray-900 font-medium">{moodResult.message}</p>
-                                    <p className="text-sm text-gray-600 mt-2">Mood Level: <span className="font-medium capitalize">{moodResult.mood_level}</span></p>
-                                    <p className="text-sm text-gray-600 mt-1">{moodResult.follow_up}</p>
-                                </div>
-                            )}
-                        </AnimatedCard>
-
-                        {/* Mood History */}
-                        <AnimatedCard>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Mood History</h2>
-                            <div className="space-y-3">
-                                {moodHistory.length > 0 ? (
-                                    moodHistory.map((entry, index) => (
-                                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                                            <p className="text-sm text-gray-600">{new Date(entry.timestamp).toLocaleString()}</p>
-                                            <p className="text-gray-900 mt-1">{entry.input}</p>
-                                            <span className={`inline-block px-2 py-1 text-xs rounded mt-2 ${entry.mood === 'positive' ? 'bg-green-100 text-green-800' :
-                                                    entry.mood === 'negative' ? 'bg-red-100 text-red-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                {entry.mood}
-                                            </span>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-gray-500">No mood entries yet. Start tracking above!</p>
-                                )}
-                            </div>
-                        </AnimatedCard>
-                    </motion.div>
-                )}
-
-                {/* Journaling Tab */}
-                {activeTab === 'journal' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                        <AnimatedCard>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Journaling Prompts</h2>
-                            <button
-                                onClick={loadJournalingPrompt}
-                                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium mb-6"
-                            >
-                                Get New Prompt
-                            </button>
-
-                            {journalPrompt && (
-                                <div className="mt-6 p-6 bg-purple-50 rounded-lg border-l-4 border-purple-600">
-                                    <p className="text-gray-900 whitespace-pre-wrap">{journalPrompt}</p>
-                                </div>
-                            )}
-
-                            <div className="mt-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Your Response</label>
-                                <textarea
-                                    placeholder="Take your time to reflect and write..."
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                                    rows={8}
-                                />
-                                <button className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium">
-                                    Save Entry
-                                </button>
-                            </div>
-                        </AnimatedCard>
-                    </motion.div>
-                )}
-
-                {/* Coping Strategies Tab */}
-                {activeTab === 'coping' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                        <AnimatedCard>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Coping Strategies</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                {['anxiety', 'stress', 'sadness', 'general'].map((category) => (
-                                    <button
-                                        key={category}
-                                        onClick={() => loadCopingStrategies(category)}
-                                        className="px-4 py-3 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 font-medium capitalize"
-                                    >
-                                        {category}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {copingStrategies && (
-                                <div className="p-6 bg-green-50 rounded-lg border-l-4 border-green-600">
-                                    <pre className="whitespace-pre-wrap text-gray-900 font-sans">{copingStrategies}</pre>
-                                </div>
-                            )}
-                        </AnimatedCard>
-                    </motion.div>
-                )}
-
-                {/* Daily Check-in Tab */}
-                {activeTab === 'checkin' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                        <AnimatedCard>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Daily Check-in</h2>
-                            <button
-                                onClick={loadCheckinQuestions}
-                                className="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium mb-6"
-                            >
-                                Start Check-in
-                            </button>
-
-                            {checkinQuestions.length > 0 && (
-                                <div className="space-y-4">
-                                    {checkinQuestions.map((question, index) => (
-                                        <div key={index} className="p-4 bg-yellow-50 rounded-lg">
-                                            <p className="text-gray-900 font-medium mb-2">{question}</p>
-                                            <input
-                                                type="text"
-                                                placeholder="Your answer..."
-                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-yellow-500"
-                                            />
-                                        </div>
-                                    ))}
-                                    <button className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium">
-                                        Submit Check-in
-                                    </button>
-                                </div>
-                            )}
-                        </AnimatedCard>
-                    </motion.div>
-                )}
-            </main>
+            </FloatingCard>
         </div>
     )
 }

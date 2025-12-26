@@ -26,7 +26,17 @@ services:
     volumes:
       - redis_data:/data
 
-  # Authentication Service
+  # MongoDB for MERN Stack
+  mongodb:
+    image: mongo:latest
+    container_name: mental_health_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  # Authentication Service (Legacy Python)
   auth_service:
     build:
       context: ./backend
@@ -167,3 +177,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  mongodb_data:

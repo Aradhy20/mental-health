@@ -30,7 +30,7 @@ const FloatingCard = ({
                 boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.15)',
             }}
             className={cn(
-                'glass-panel rounded-3xl p-6 transition-colors',
+                'glass-panel rounded-3xl p-6 transition-colors shimmer-hover backdrop-blur-xl',
                 className
             )}
         >

@@ -16,7 +16,7 @@ except ImportError:
     sys.path.append(os.path.dirname(parent_dir))
     from face.model.emotion_cnn import EmotionCNN
 
-def train_face_model(train_dir="dataset/train", val_dir="dataset/test", output_dir="../model", epochs=50):
+def train_face_model(train_dir="../../../data/train", val_dir="../../../data/valid", output_dir="../model", epochs=50):
     """
     Train the facial emotion CNN
     """

@@ -8,15 +8,12 @@ from pydantic import BaseModel
 # Add the parent directory to the Python path to allow imports from shared
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from fastapi import FastAPI, HTTPException, status, APIRouter, Depends
+from fastapi import FastAPI, HTTPException, status, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from face_analyzer import analyzer
-# from shared.mongodb import face_collection, fix_id  # MIGRATED TO SQLITE
-from sqlalchemy.orm import Session
-from shared.database import get_db
-from shared.models import FaceAnalysis as FaceAnalysisDB
+from shared.mongodb import face_collection, fix_id
 
-app = FastAPI(title="Face Analysis Service", version="1.0.0")
+app = FastAPI(title="Face Analysis Service (MongoDB)", version="3.0.0")
 
 # Add CORS middleware
 app.add_middleware(
@@ -40,7 +37,7 @@ class FaceAnalysisResponse(BaseModel):
     timestamp: datetime
 
 @router.post("/analyze/face", response_model=FaceAnalysisResponse)
-async def analyze_face(request: FaceAnalysisRequest, db: Session = Depends(get_db)):
+async def analyze_face(request: FaceAnalysisRequest):
     try:
         # Decode base64 image
         if "," in request.image:
@@ -53,33 +50,27 @@ async def analyze_face(request: FaceAnalysisRequest, db: Session = Depends(get_d
         # Analyze emotion
         emotion_label, face_score, confidence = analyzer.analyze_emotion(image_data)
         
-        # Save to SQLite
-        try:
-             user_id_int = int(request.user_id)
-        except ValueError:
-             user_id_int = 1 # Fallback
-             
-        db_analysis = FaceAnalysisDB(
-            user_id=user_id_int,
-            emotion_label=emotion_label,
-            face_score=float(face_score),
-            confidence=float(confidence),
-            created_at=datetime.utcnow()
-        )
-        db.add(db_analysis)
-        db.commit()
-        db.refresh(db_analysis)
+        # Save to MongoDB
+        doc = {
+            "user_id": str(request.user_id),
+            "emotion_label": emotion_label,
+            "face_score": float(face_score),
+            "confidence": float(confidence),
+            "created_at": datetime.utcnow()
+        }
+        
+        await face_collection.insert_one(doc)
         
         return FaceAnalysisResponse(
             emotion=emotion_label,
             score=float(face_score),
             confidence=float(confidence),
-            timestamp=db_analysis.created_at
+            timestamp=doc["created_at"]
         )
         
     except Exception as e:
         print(f"Error: {e}")
-        # Fallback for demo/testing if analysis fails or model not loaded
+        # Fallback for demo/testing if analysis fails
         return FaceAnalysisResponse(
             emotion="Neutral",
             score=0.5,
@@ -89,15 +80,15 @@ async def analyze_face(request: FaceAnalysisRequest, db: Session = Depends(get_d
 
 @app.get("/")
 async def root():
-    return {"message": "Face Analysis Service is running (SQLite)"}
+    return {"message": "Face Analysis Service is running (MongoDB)", "database": "mongodb"}
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "service": "face_service",
-        "version": "1.0.0",
-        "database": "sqlite"
+        "version": "3.0.0",
+        "database": "mongodb"
     }
 
 app.include_router(router, prefix="/v1")

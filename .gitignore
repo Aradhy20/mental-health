@@ -61,7 +61,8 @@ mental_health.db
 *.pth
 *.onnx
 *.pb
-models/
+/models/
+./models/
 
 # Temporary files
 tmp/

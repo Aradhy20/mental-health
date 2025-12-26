@@ -4,25 +4,22 @@ import os
 # Add the shared directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from fastapi import FastAPI, HTTPException, APIRouter, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, APIRouter, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from dotenv import load_dotenv
 import random
-from sqlalchemy.orm import Session
 
 import models
 import voice_analyzer
 from models import VoiceAnalysisResult, VoiceAnalysisResponse
 from voice_analyzer import analyzer
-# from shared.mongodb import voice_collection, fix_id  # MIGRATED TO SQLITE
-from shared.database import get_db
-from shared.models import VoiceAnalysis as VoiceAnalysisDB
+from shared.mongodb import voice_collection, fix_id
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Voice Analysis Service (SQLite)", version="2.0.0")
+app = FastAPI(title="Voice Analysis Service (MongoDB)", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,42 +34,34 @@ router = APIRouter()
 @router.post("/analyze/voice", response_model=VoiceAnalysisResponse)
 async def analyze_voice(
     user_id: str = Form(...),
-    audio_file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    audio_file: UploadFile = File(...)
 ):
     """
-    Analyze voice recording for stress and emotional indicators - SQLite version
+    Analyze voice recording for stress and emotional indicators - MongoDB version
     """
     try:
         audio_data = await audio_file.read()
         voice_label, voice_score, confidence = analyzer.analyze_stress(audio_data)
         
-        # Save to SQLite
-        try:
-            user_id_int = int(user_id)
-        except ValueError:
-             # Handle case where user_id might not be an int (e.g. testing)
-             # For now, let's assume valid user_id
-             user_id_int = 1 
-
-        db_analysis = VoiceAnalysisDB(
-            user_id=user_id_int,
-            voice_label=voice_label,
-            voice_score=voice_score,
-            confidence=confidence,
-            created_at=datetime.utcnow()
-        )
-        db.add(db_analysis)
-        db.commit()
-        db.refresh(db_analysis)
+        # Save to MongoDB
+        doc = {
+            "user_id": str(user_id),
+            "voice_label": voice_label,
+            "voice_score": float(voice_score),
+            "confidence": float(confidence),
+            "created_at": datetime.utcnow()
+        }
+        
+        result = await voice_collection.insert_one(doc)
+        doc_id = str(result.inserted_id)
         
         # Create result object
         analysis_result = VoiceAnalysisResult(
-            voice_id=str(db_analysis.voice_id),
-            user_id=str(user_id_int),
-            voice_score=round(voice_score, 4),
+            voice_id=doc_id,
+            user_id=str(user_id),
+            voice_score=round(float(voice_score), 4),
             voice_label=voice_label,
-            confidence=round(confidence, 4)
+            confidence=round(float(confidence), 4)
         )
         
         return VoiceAnalysisResponse(
@@ -81,7 +70,6 @@ async def analyze_voice(
         )
     except Exception as e:
         print(f"Error saving voice analysis: {e}")
-        # Return result even if save fails (or handle error)
         raise HTTPException(status_code=500, detail=f"Voice analysis failed: {str(e)}")
 
 @router.get("/analyze/voice/history")
@@ -91,23 +79,31 @@ async def get_voice_history(user_id: str, days: int = 30):
     """
     try:
         from datetime import timedelta
-        
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        # Query MongoDB for user's voice history
         cursor = voice_collection.find({
-            "user_id": user_id,
+            "user_id": str(user_id),
             "created_at": {"$gte": start_date}
-        }).sort("created_at", -1)
+        }).sort("created_at", -1).limit(100)
         
         results = await cursor.to_list(length=100)
-        results = [fix_id(doc) for doc in results]
+        
+        history = [
+            {
+                "voice_id": str(r["_id"]),
+                "user_id": r["user_id"],
+                "voice_label": r["voice_label"],
+                "voice_score": r["voice_score"],
+                "confidence": r["confidence"],
+                "created_at": r["created_at"].isoformat()
+            } for r in results
+        ]
         
         return {
             "user_id": user_id,
             "days": days,
-            "count": len(results),
-            "history": results
+            "count": len(history),
+            "history": history
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch voice history: {str(e)}")
@@ -115,9 +111,9 @@ async def get_voice_history(user_id: str, days: int = 30):
 @app.get("/")
 async def root():
     return {
-        "message": "Voice Analysis Service is running (SQLite)",
-        "version": "2.0.0",
-        "database": "sqlite"
+        "message": "Voice Analysis Service is running (MongoDB)",
+        "version": "3.0.0",
+        "database": "mongodb"
     }
 
 @app.get("/health")
@@ -125,8 +121,8 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "voice_service",
-        "version": "2.0.0",
-        "database": "sqlite"
+        "version": "3.0.0",
+        "database": "mongodb"
     }
 
 app.include_router(router, prefix="/v1")

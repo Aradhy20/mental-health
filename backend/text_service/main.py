@@ -4,24 +4,22 @@ import os
 # Add the shared directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from fastapi import FastAPI, HTTPException, APIRouter, Depends
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
 import json
 
 import models
 import text_analyzer
 from models import TextInput, TextAnalysisResult, TextAnalysisResponse, ContextualAnalysisRequest, ContextualAnalysisResponse
 from text_analyzer import analyzer
-from shared.database import get_db
-from shared.models import TextAnalysis as TextAnalysisDB
+from shared.mongodb import text_collection, fix_id
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Text Analysis Service (SQLite)", version="2.0.0")
+app = FastAPI(title="Text Analysis Service (MongoDB)", version="3.0.0")
 
 # Add CORS middleware
 app.add_middleware(
@@ -36,7 +34,7 @@ router = APIRouter()
 
 # Routes
 @router.post("/analyze/text", response_model=TextAnalysisResponse)
-async def analyze_text(input_data: TextInput, db: Session = Depends(get_db)):
+async def analyze_text(input_data: TextInput):
     """
     Analyze text for emotional content
     """
@@ -44,33 +42,22 @@ async def analyze_text(input_data: TextInput, db: Session = Depends(get_db)):
         # Perform text analysis
         emotion_label, emotion_score, confidence = analyzer.analyze_emotion(input_data.text)
         
-        # Save to SQLite
-        try:
-             user_id_int = int(input_data.user_id)
-        except ValueError:
-             user_id_int = 1 # Fallback for testing/invalid IDs
-             
-        db_analysis = TextAnalysisDB(
-            user_id=user_id_int,
-            input_text=input_data.text,
-            emotion_label=emotion_label,
-            confidence=float(confidence),
-            created_at=datetime.utcnow()
-        )
-        # Note: emotion_score is not in the shared model for TextAnalysis based on my previous check?
-        # Checking shared/models.py content from Step 91:
-        # text_id, user_id, input_text, emotion_label, emotion_score, confidence, created_at.
-        # So emotion_score IS there. I should include it.
+        # Save to MongoDB
+        doc = {
+            "user_id": str(input_data.user_id),
+            "input_text": input_data.text,
+            "emotion_label": emotion_label,
+            "emotion_score": float(emotion_score),
+            "confidence": float(confidence),
+            "created_at": datetime.utcnow()
+        }
         
-        db_analysis.emotion_score = float(emotion_score)
-        
-        db.add(db_analysis)
-        db.commit()
-        db.refresh(db_analysis)
+        result = await text_collection.insert_one(doc)
+        doc_id = str(result.inserted_id)
         
         # Create result object
         analysis_result = TextAnalysisResult(
-            text_id=str(db_analysis.text_id),
+            text_id=doc_id,
             user_id=str(input_data.user_id),
             input_text=input_data.text,
             emotion_label=emotion_label,
@@ -86,7 +73,7 @@ async def analyze_text(input_data: TextInput, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Text analysis failed: {str(e)}")
 
 @router.post("/analyze/text/contextual", response_model=ContextualAnalysisResponse)
-async def analyze_text_contextual(input_data: ContextualAnalysisRequest, db: Session = Depends(get_db)):
+async def analyze_text_contextual(input_data: ContextualAnalysisRequest):
     """
     Analyze text with contextual understanding using RAG and vector database
     """
@@ -94,36 +81,28 @@ async def analyze_text_contextual(input_data: ContextualAnalysisRequest, db: Ses
         # Perform contextual analysis
         contextual_result = analyzer.analyze_with_context(input_data.text)
         
-        # Save to SQLite (using same table or a generic one if needed)
-        # For now we'll save the basic emotional part to the TextAnalysis table
-        # In a real app we might want a separate table for richer Contextual results
-        
-        try:
-             user_id_int = int(input_data.user_id)
-        except ValueError:
-             user_id_int = 1
-
+        # Save to MongoDB
         emotion_data = contextual_result["emotion_analysis"]
-        
-        db_analysis = TextAnalysisDB(
-            user_id=user_id_int,
-            input_text=input_data.text,
-            emotion_label=emotion_data["emotion_label"],
-            confidence=float(emotion_data["confidence"]),
-            emotion_score=float(emotion_data["emotion_score"]),
-            created_at=datetime.utcnow()
-        )
-        db.add(db_analysis)
-        db.commit()
+        doc = {
+            "user_id": str(input_data.user_id),
+            "input_text": input_data.text,
+            "emotion_label": emotion_data["emotion_label"],
+            "emotion_score": float(emotion_data["emotion_score"]),
+            "confidence": float(emotion_data["confidence"]),
+            "contextual_response": contextual_result["contextual_response"],
+            "risk_level": contextual_result["risk_level"],
+            "created_at": datetime.utcnow()
+        }
+        await text_collection.insert_one(doc)
         
         # Format knowledge documents
         knowledge_docs = []
-        for doc in contextual_result["relevant_knowledge"]:
+        for doc_item in contextual_result["relevant_knowledge"]:
             knowledge_docs.append({
-                "id": doc["id"],
-                "content": doc["content"],
-                "metadata": doc.get("metadata"),
-                "distance": doc.get("distance")
+                "id": doc_item["id"],
+                "content": doc_item["content"],
+                "metadata": doc_item.get("metadata"),
+                "distance": doc_item.get("distance")
             })
         
         # Create result object
@@ -143,34 +122,30 @@ async def analyze_text_contextual(input_data: ContextualAnalysisRequest, db: Ses
         raise HTTPException(status_code=500, detail=f"Contextual text analysis failed: {str(e)}")
 
 @router.get("/analyze/emotion/history")
-async def get_emotion_history(user_id: str, days: int = 30, db: Session = Depends(get_db)):
+async def get_emotion_history(user_id: str, days: int = 30):
     """
-    Get emotion history for a user from SQLite
+    Get emotion history for a user from MongoDB
     """
     try:
         from datetime import timedelta
-        
-        try:
-             user_id_int = int(user_id)
-        except ValueError:
-             user_id_int = 1
-
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        results = db.query(TextAnalysisDB).filter(
-            TextAnalysisDB.user_id == user_id_int,
-            TextAnalysisDB.created_at >= start_date
-        ).order_by(TextAnalysisDB.created_at.desc()).limit(100).all()
+        cursor = text_collection.find({
+            "user_id": str(user_id),
+            "created_at": {"$gte": start_date}
+        }).sort("created_at", -1).limit(100)
+        
+        results = await cursor.to_list(length=100)
         
         formatted_results = []
         for r in results:
             formatted_results.append({
-                "text_id": str(r.text_id),
-                "user_id": str(r.user_id),
-                "text": r.text_content,
-                "emotion_label": r.emotion_label,
-                "confidence": r.confidence_score,
-                "created_at": r.created_at
+                "text_id": str(r["_id"]),
+                "user_id": r["user_id"],
+                "text": r["input_text"],
+                "emotion_label": r["emotion_label"],
+                "confidence": r["confidence"],
+                "created_at": r["created_at"]
             })
         
         return {
@@ -185,9 +160,9 @@ async def get_emotion_history(user_id: str, days: int = 30, db: Session = Depend
 @app.get("/")
 async def root():
     return {
-        "message": "Text Analysis Service is running (SQLite)",
-        "version": "2.0.0",
-        "database": "sqlite"
+        "message": "Text Analysis Service is running (MongoDB)",
+        "version": "3.0.0",
+        "database": "mongodb"
     }
 
 @app.get("/health")
@@ -195,8 +170,8 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "text_service",
-        "version": "2.0.0",
-        "database": "sqlite"
+        "version": "3.0.0",
+        "database": "mongodb"
     }
 
 # Include router with /v1 prefix

@@ -23,9 +23,13 @@ export default function JournalPage() {
     const [showHistory, setShowHistory] = useState(false)
 
     const fetchEntries = useCallback(async () => {
-        if (!user) return
+        const authStore = useAuthStore.getState();
+        if (!authStore.token) return
         try {
-            const response = await fetch(`http://localhost:8008/v1/journal/${user.user_id}`)
+            const journalUrl = process.env.NEXT_PUBLIC_MOOD_JOURNAL_URL || 'http://localhost:5000/api/journal';
+            const response = await fetch(journalUrl, {
+                headers: { 'Authorization': `Bearer ${authStore.token}` }
+            })
             if (response.ok) {
                 const data = await response.json()
                 setEntries(data.entries)
@@ -35,22 +39,27 @@ export default function JournalPage() {
         } finally {
             setIsLoading(false)
         }
-    }, [user])
+    }, [])
 
     useEffect(() => {
         fetchEntries()
     }, [fetchEntries])
 
     const handleSave = async () => {
-        if (!content.trim() || !user) return
+        if (!content.trim()) return
+        const authStore = useAuthStore.getState();
+        if (!authStore.token) return
         setIsSaving(true)
 
         try {
-            const response = await fetch('http://localhost:8008/v1/journal', {
+            const journalUrl = process.env.NEXT_PUBLIC_MOOD_JOURNAL_URL || 'http://localhost:5000/api/journal';
+            const response = await fetch(journalUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authStore.token}`
+                },
                 body: JSON.stringify({
-                    user_id: user.user_id,
                     title: title || 'Untitled Entry',
                     content: content,
                     is_private: true
@@ -61,7 +70,6 @@ export default function JournalPage() {
                 setTitle('')
                 setContent('')
                 fetchEntries()
-                // Show a success animation later
             }
         } catch (error) {
             console.error('Failed to save entry:', error)
@@ -71,12 +79,16 @@ export default function JournalPage() {
     }
 
     const deleteEntry = async (id: string) => {
+        const authStore = useAuthStore.getState();
+        if (!authStore.token) return
         try {
-            const response = await fetch(`http://localhost:8008/v1/journal/${id}`, {
-                method: 'DELETE'
+            const journalUrl = process.env.NEXT_PUBLIC_MOOD_JOURNAL_URL || 'http://localhost:5000/api/journal';
+            const response = await fetch(`${journalUrl}/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${authStore.token}` }
             })
             if (response.ok) {
-                setEntries(prev => prev.filter(e => e.id !== id))
+                setEntries(prev => prev.filter(e => (e as any)._id !== id))
             }
         } catch (error) {
             console.error('Failed to delete:', error)
@@ -105,21 +117,21 @@ export default function JournalPage() {
                         <motion.div
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            key={entry.id}
+                            key={(entry as any)._id || entry.id}
                             onClick={() => { setTitle(entry.title); setContent(entry.content); }}
                             className="p-4 rounded-2xl bg-white/50 dark:bg-white/5 border border-transparent hover:border-serenity-500/30 cursor-pointer group transition-all"
                         >
                             <div className="flex justify-between items-start">
                                 <h4 className="font-bold text-sm truncate pr-2">{entry.title}</h4>
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); deleteEntry(entry.id); }}
+                                    onClick={(e) => { e.stopPropagation(); deleteEntry((entry as any)._id || entry.id); }}
                                     className="opacity-0 group-hover:opacity-100 text-red-500 p-1 hover:bg-red-50 rounded-lg transition-all"
                                 >
                                     <Trash2 size={14} />
                                 </button>
                             </div>
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                {new Date((entry as any).createdAt || entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </p>
                         </motion.div>
                     ))}

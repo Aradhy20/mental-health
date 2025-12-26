@@ -15,7 +15,8 @@ import {
     User,
     Menu,
     X,
-    LogOut
+    LogOut,
+    MapPin
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ThemeToggle from './ThemeToggle'
@@ -28,6 +29,7 @@ const menuItems = [
     { icon: MessageCircle, label: 'AI Chat', href: '/chat' },
     { icon: Wind, label: 'Meditation', href: '/meditation' },
     { icon: BarChart2, label: 'Insights', href: '/insights' },
+    { icon: MapPin, label: 'Specialists', href: '/specialists' },
 ]
 
 const bottomItems = [

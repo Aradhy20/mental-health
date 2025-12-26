@@ -1,21 +1,25 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { motion } from 'framer-motion'
-import AnimatedCard from '@/components/animations/AnimatedCard'
-import AnimatedButton from '@/components/animations/AnimatedButton'
-import AnimatedSpinner from '@/components/animations/AnimatedSpinner'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Mic, Square, Activity, Shield, Sparkles, AlertCircle, Headphones } from 'lucide-react'
+import { analysisAPI } from '@/lib/api'
+import { useAuthStore } from '@/lib/store/auth-store'
+import FloatingCard from '@/components/anti-gravity/FloatingCard'
 
 interface VoiceAnalysisResult {
-  stress_label: string
-  stress_score: number
-  confidence: number
+  result: {
+    voice_label: string
+    voice_score: number
+    confidence: number
+  }
 }
 
 const VoiceAnalyzer: React.FC = () => {
+  const { user } = useAuthStore()
   const [isRecording, setIsRecording] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [result, setResult] = useState<VoiceAnalysisResult | null>(null)
+  const [result, setResult] = useState<VoiceAnalysisResult['result'] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -32,24 +36,14 @@ const VoiceAnalyzer: React.FC = () => {
       }
 
       mediaRecorderRef.current.onstop = async () => {
-        setIsAnalyzing(true)
-        try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-          // In a real implementation, we would send this to the backend
-          // For now, we'll simulate the analysis
-          await simulateVoiceAnalysis(audioBlob)
-        } catch (err) {
-          setError('Failed to analyze voice recording')
-          console.error(err)
-        } finally {
-          setIsAnalyzing(false)
-        }
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        await analyzeVoice(audioBlob)
       }
 
       mediaRecorderRef.current.start()
       setIsRecording(true)
     } catch (err) {
-      setError('Failed to access microphone')
+      setError('Access Denied: Microphone link failed.')
       console.error(err)
     }
   }
@@ -58,223 +52,192 @@ const VoiceAnalyzer: React.FC = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      // Stop all tracks to release microphone
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
     }
   }
 
-  const simulateVoiceAnalysis = async (audioBlob: Blob) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Mock analysis result based on audio size
-    const audioSize = audioBlob.size
-    const stressScore = Math.min(audioSize / 10000, 0.95)
-    
-    let stressLabel = 'calm'
-    if (stressScore < 0.2) stressLabel = 'calm'
-    else if (stressScore < 0.4) stressLabel = 'mild_stress'
-    else if (stressScore < 0.6) stressLabel = 'moderate_stress'
-    else if (stressScore < 0.8) stressLabel = 'high_stress'
-    else stressLabel = 'anxiety'
-    
-    const confidence = Math.min(0.5 + (audioSize / 20000), 0.95)
-    
-    setResult({
-      stress_label: stressLabel,
-      stress_score: stressScore,
-      confidence: confidence
-    })
+  const analyzeVoice = async (audioBlob: Blob) => {
+    setIsAnalyzing(true)
+    setError(null)
+    try {
+      const response = await analysisAPI.analyzeVoice(audioBlob, user?.user_id || '1')
+      setResult(response.data.result)
+    } catch (err: any) {
+      setError('Neural Link Error: Failed to process vocal data.')
+      console.error(err)
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
   const getStressColor = (label: string) => {
-    switch (label) {
-      case 'calm': return 'bg-green-500'
-      case 'mild_stress': return 'bg-yellow-500'
-      case 'moderate_stress': return 'bg-orange-500'
-      case 'high_stress': return 'bg-red-500'
-      case 'anxiety': return 'bg-red-700'
-      default: return 'bg-gray-500'
-    }
-  }
-
-  const getStressLabel = (label: string) => {
-    switch (label) {
-      case 'calm': return 'Calm'
-      case 'mild_stress': return 'Mild Stress'
-      case 'moderate_stress': return 'Moderate Stress'
-      case 'high_stress': return 'High Stress'
-      case 'anxiety': return 'Anxiety'
-      default: return label
-    }
+    const l = label.toLowerCase()
+    if (l.includes('calm')) return 'text-emerald-400'
+    if (l.includes('mild')) return 'text-cyan-400'
+    if (l.includes('moderate')) return 'text-amber-400'
+    return 'text-rose-400'
   }
 
   return (
-    <AnimatedCard className="bg-white rounded-xl shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Voice Stress Analysis</h2>
-      
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-700">{error}</p>
+    <FloatingCard className="glass-panel overflow-hidden border-indigo-500/30">
+      <div className="p-6 md:p-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-display font-bold text-white flex items-center gap-2">
+              <Headphones className="text-indigo-400" size={24} />
+              Acoustic Pulse Analysis
+            </h2>
+            <p className="text-slate-400 text-sm mt-1 uppercase tracking-widest font-bold">
+              Vocal Biomarker Detection System
+            </p>
+          </div>
         </div>
-      )}
 
-      <div className="flex flex-col items-center justify-center py-8">
-        <div className="relative mb-6">
+        {error && (
           <motion.div
-            className={`w-24 h-24 rounded-full ${isRecording ? 'bg-red-500' : 'bg-gray-300'} flex items-center justify-center`}
-            animate={isRecording ? { scale: [1, 1.1, 1] } : {}}
-            transition={{ duration: 1, repeat: isRecording ? Infinity : 0 }}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center gap-3 text-rose-400 text-sm font-bold"
           >
-            <svg 
-              className="w-12 h-12 text-white" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" 
-              />
-            </svg>
+            <AlertCircle size={20} />
+            {error}
           </motion.div>
-          
-          {isRecording && (
+        )}
+
+        <div className="flex flex-col items-center justify-center space-y-8 py-4">
+          <div className="relative">
             <motion.div
-              className="absolute inset-0 rounded-full bg-red-500 opacity-30"
-              animate={{ scale: [1, 1.5], opacity: [0.3, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          )}
+              className={`w-32 h-32 rounded-full flex items-center justify-center transition-colors duration-500 ${isRecording ? 'bg-rose-500/20 text-rose-500' : 'bg-slate-800 text-slate-500'
+                }`}
+            >
+              <Mic size={48} className={isRecording ? 'animate-pulse' : ''} />
+
+              <AnimatePresence>
+                {isRecording && (
+                  <>
+                    {[1, 1.2, 1.4].map((scale, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute inset-0 rounded-full border border-rose-500/50"
+                        initial={{ scale: 1, opacity: 0.5 }}
+                        animate={{ scale: scale + 0.5, opacity: 0 }}
+                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.4 }}
+                      />
+                    ))}
+                  </>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+
+          <div className="text-center space-y-2">
+            <p className={`text-lg font-bold tracking-tight transition-colors ${isRecording ? 'text-rose-400' : 'text-slate-300'}`}>
+              {isRecording ? "SYSTEM RECORDING..." : "VOICE ENGINE STANDBY"}
+            </p>
+            <p className="text-slate-500 text-sm max-w-xs mx-auto">
+              Speak for 3-5 seconds naturally about your state of mind.
+            </p>
+          </div>
+
+          <div className="flex gap-4">
+            {!isRecording ? (
+              <button
+                onClick={startRecording}
+                disabled={isAnalyzing}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold tracking-widest uppercase text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2"
+              >
+                <Mic size={18} />
+                START CAPTURE
+              </button>
+            ) : (
+              <button
+                onClick={stopRecording}
+                className="px-8 py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold tracking-widest uppercase text-sm transition-all shadow-xl shadow-rose-600/20 flex items-center gap-2"
+              >
+                <Square size={18} />
+                END CAPTURE
+              </button>
+            )}
+          </div>
         </div>
 
-        <p className="text-gray-600 mb-6 text-center">
-          {isRecording 
-            ? "Recording... Speak naturally about your feelings" 
-            : "Click record to analyze your voice for stress indicators"}
-        </p>
-
-        <div className="flex gap-4">
-          {!isRecording ? (
-            <AnimatedButton
-              onClick={startRecording}
-              variant="primary"
-              size="lg"
-              disabled={isAnalyzing}
-            >
-              <svg 
-                className="w-5 h-5 mr-2" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" 
-                />
-              </svg>
-              Record
-            </AnimatedButton>
-          ) : (
-            <AnimatedButton
-              onClick={stopRecording}
-              variant="outline"
-              size="lg"
-              disabled={isAnalyzing}
-            >
-              <svg 
-                className="w-5 h-5 mr-2" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-                />
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" 
-                />
-              </svg>
-              Stop
-            </AnimatedButton>
-          )}
-
+        <AnimatePresence mode="wait">
           {isAnalyzing && (
-            <div className="flex items-center">
-              <AnimatedSpinner size="md" className="mr-2" />
-              <span>Analyzing...</span>
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center gap-4 py-6"
+            >
+              <div className="flex gap-1.5 h-12 items-center">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 bg-indigo-500 rounded-full"
+                    animate={{ height: [10, 48, 10] }}
+                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
+                  />
+                ))}
+              </div>
+              <span className="text-indigo-400 font-bold tracking-[0.3em] text-xs uppercase">Processing Harmonics...</span>
+            </motion.div>
           )}
+
+          {!isAnalyzing && result && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-slate-900/50 rounded-3xl border border-white/5 p-6 space-y-6"
+            >
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">STRESS ARCHETYPE</p>
+                  <h3 className={`text-3xl font-display font-bold uppercase ${getStressColor(result.voice_label)}`}>
+                    {result.voice_label.replace('_', ' ')}
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">INTENSITY</p>
+                  <h3 className="text-2xl font-bold text-white">{(result.voice_score * 100).toFixed(1)}%</h3>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <span>Signal Accuracy</span>
+                  <span className="text-white">{(result.confidence * 100).toFixed(1)}%</span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${result.confidence * 100}%` }}
+                    transition={{ duration: 1 }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
+            <Activity className="text-indigo-400" size={20} />
+            <div>
+              <p className="text-slate-300 text-xs font-bold">Latency</p>
+              <p className="text-slate-500 text-[10px]">Real-time Stream</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+            <Shield className="text-emerald-400" size={20} />
+            <div>
+              <p className="text-slate-300 text-xs font-bold">Privacy</p>
+              <p className="text-slate-500 text-[10px]">On-device Capture</p>
+            </div>
+          </div>
         </div>
       </div>
-
-      {result && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 p-4 bg-gray-50 rounded-lg"
-        >
-          <h3 className="font-medium text-gray-900 mb-3">Analysis Results</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className={`inline-block px-3 py-1 rounded-full text-white text-sm ${getStressColor(result.stress_label)}`}>
-                {getStressLabel(result.stress_label)}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Stress Level</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">
-                {(result.stress_score * 100).toFixed(0)}%
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Stress Score</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">
-                {(result.confidence * 100).toFixed(0)}%
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Confidence</p>
-            </div>
-          </div>
-          
-          <div className="mt-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Stress Indicator</span>
-              <span className="font-medium">{(result.stress_score * 100).toFixed(0)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <motion.div 
-                className={`h-2 rounded-full ${getStressColor(result.stress_label)}`}
-                initial={{ width: 0 }}
-                animate={{ width: `${result.stress_score * 100}%` }}
-                transition={{ duration: 1 }}
-              />
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h4 className="font-medium text-gray-900 mb-2">How it works</h4>
-        <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-          <li>Analyzes pitch, intensity, and jitter in your voice</li>
-          <li>Detects stress patterns and emotional indicators</li>
-          <li>Provides actionable insights for stress management</li>
-        </ul>
-      </div>
-    </AnimatedCard>
+    </FloatingCard>
   )
 }
 

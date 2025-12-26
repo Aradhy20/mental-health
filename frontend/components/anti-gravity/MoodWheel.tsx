@@ -15,25 +15,30 @@ const moods = [
 ]
 
 const MoodWheel = () => {
-    const [selectedMood, setSelectedMood] = useState<number | null>(null)
     const { user } = useAuthStore()
+    const [selectedMood, setSelectedMood] = useState<number | null>(null)
     const [isSaving, setIsSaving] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
 
     const handleMoodSelect = async (index: number) => {
         if (isSaving) return
         setSelectedMood(index)
         setIsSaving(true)
+        setShowSuccess(false)
 
         try {
             const mood = moods[index]
-            // Calculate score based on mood (Radiant=5, Stormy=1)
             const score = 5 - (index / (moods.length - 1)) * 4
+            const moodUrl = process.env.NEXT_PUBLIC_MOOD_JOURNAL_URL || 'http://localhost:5000/api/mood';
+            const authStore = useAuthStore.getState();
 
-            const response = await fetch('http://localhost:8008/v1/mood', {
+            const response = await fetch(moodUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authStore.token}`
+                },
                 body: JSON.stringify({
-                    user_id: user?.user_id || "1",
                     mood_label: mood.label,
                     score: score,
                     notes: `Logged via MoodWheel at ${new Date().toLocaleTimeString()}`
@@ -41,7 +46,8 @@ const MoodWheel = () => {
             })
 
             if (response.ok) {
-                console.log('Mood logged successfully')
+                setShowSuccess(true)
+                setTimeout(() => setShowSuccess(false), 3000)
             }
         } catch (error) {
             console.error('Failed to log mood:', error)
@@ -95,7 +101,20 @@ const MoodWheel = () => {
             </div>
 
             <AnimatePresence>
-                {selectedMood !== null && (
+                {showSuccess && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-green-500 text-white px-4 py-2 rounded-full shadow-lg pointer-events-none"
+                    >
+                        <p className="font-bold flex items-center gap-2">
+                            <Sun size={18} /> Mood Logged!
+                        </p>
+                    </motion.div>
+                )}
+
+                {selectedMood !== null && !showSuccess && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
