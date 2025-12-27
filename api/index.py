@@ -1,28 +1,29 @@
-"""
-Vercel serverless entrypoint for FastAPI
-Maps the /api routes to the backend application.
-"""
 import sys
 import os
 
-# Ensure backend directory is in path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(current_dir)
-backend_path = os.path.join(root_dir, 'backend')
+# Add root and backend directories to sys.path
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+backend_dir = os.path.join(root_dir, 'backend')
 
-sys.path.insert(0, backend_path)
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 try:
+    # Try importing as a package from root
     from backend.api.index import app
 except ImportError:
     try:
-        from main import app
+        # Try importing directly if backend_dir is in path
+        from api.index import app as backend_app
+        app = backend_app
     except ImportError:
         from fastapi import FastAPI
         app = FastAPI()
-        
-        @app.get("/api")
-        async def root():
-            return {"message": "API entrypoint active in root/api/index.py"}
+        @app.get("/api/health")
+        async def health():
+            return {"status": "error", "message": "Could not import backend app"}
 
 __all__ = ["app"]
+
