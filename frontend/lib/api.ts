@@ -71,4 +71,8 @@ export const doctorsAPI = {
     api.post('/doctors/nearby', { lat, lon, maxDistance }),
 };
 
+export const userAPI = {
+  getDashboardStats: () => api.get('/users/dashboard-stats'),
+};
+
 export default api;

@@ -39,7 +39,11 @@ export default function LoginPage() {
     setIsLoading(true);
     setError('');
     try {
-      await authAPI.requestOTP(phoneData.phone);
+      const response = await authAPI.requestOTP(phoneData.phone);
+      if (response.data.debug_otp) {
+        // DEV: Show OTP to user since SMS is not real
+        setError(`DEV MODE CODE: ${response.data.debug_otp}`);
+      }
       setStep(2);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Could not send OTP');
@@ -47,6 +51,7 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +104,14 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 mb-6 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center font-medium">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className={`p-3 mb-6 rounded-lg border text-xs text-center font-medium ${error.includes('DEV MODE')
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/20 text-red-400'
+                }`}
+            >
               {error}
             </motion.div>
           )}

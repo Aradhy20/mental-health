@@ -27,43 +27,35 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
 }) => {
   return (
     <motion.div
-      whileHover={{ y: -5, boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.15)' }}
+      whileHover={{ y: -5 }}
       whileTap={{ scale: 0.98 }}
-      className={`glass-card cursor-pointer ${className}`}
+      className={`glass-panel p-6 rounded-[2rem] border border-white/5 cursor-pointer relative overflow-hidden group ${className}`}
       onClick={onClick}
     >
-      <div className="flex justify-between items-start">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150" />
+
+      <div className="flex justify-between items-start relative z-10">
         <div>
-          <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</h3>
+          <p className="mt-2 text-3xl font-display font-bold text-white tracking-tight">{value}</p>
           {description && (
-            <p className="mt-1 text-sm text-gray-500">{description}</p>
+            <p className="mt-1 text-xs text-slate-500 font-medium">{description}</p>
           )}
         </div>
         {icon && (
-          <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+          <div className="p-3 rounded-2xl bg-violet-500/10 text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-colors shadow-inner">
             {icon}
           </div>
         )}
       </div>
-      
+
       {trend && (
-        <div className="mt-4 flex items-center">
-          <span className={`inline-flex items-center text-sm font-medium ${
-            trend.isPositive ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {trend.isPositive ? (
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
-            {Math.abs(trend.value)}%
+        <div className="mt-4 flex items-center relative z-10">
+          <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${trend.isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+            }`}>
+            {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
           </span>
-          <span className="ml-2 text-sm text-gray-500">from last week</span>
+          <span className="ml-2 text-[10px] text-slate-500 font-medium uppercase tracking-wide">vs last week</span>
         </div>
       )}
     </motion.div>

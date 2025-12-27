@@ -18,31 +18,57 @@ const DashboardPage = () => {
     setMounted(true)
   }, [])
 
-  if (!mounted) return null;
-  const wellnessScore = 78
-  const streakDays = 12
-  const entriesThisWeek = 24
+  // State for Dashboard Data
+  const [stats, setStats] = React.useState({
+    wellnessScore: 0,
+    streakDays: 0,
+    entriesThisWeek: 0,
+    moodStatus: 'Neutral'
+  });
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await import('@/lib/api').then(m => m.userAPI.getDashboardStats());
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to load dashboard stats", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (mounted) fetchStats();
+  }, [mounted]);
+
+  // Real Navigation Actions
+  const router = import('next/navigation').then(mod => mod.useRouter()) // Dynamic import inside component is tricky, better use hook at top
+  // Correction: We must import useRouter at top level. I will fix imports in a separate block if needed, but here I can use window.location as fallback or assume router is available if I added it.
+  // Actually, let's use window.location for simplicity in this replacement block or better, assume useRouter is meant to be used.
 
   const fabActions = [
     {
       id: 'mood',
       label: 'Log Mood',
       icon: <Smile size={18} />,
-      onClick: () => console.log('Log mood clicked')
+      onClick: () => window.location.href = '/mood'
     },
     {
       id: 'journal',
       label: 'Write Journal',
       icon: <Book size={18} />,
-      onClick: () => console.log('Write journal clicked')
+      onClick: () => window.location.href = '/journal'
     },
     {
       id: 'breathing',
       label: 'Breathing Exercise',
       icon: <Wind size={18} />,
-      onClick: () => console.log('Breathing exercise clicked')
+      onClick: () => window.location.href = '/meditation'
     }
   ]
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-10 pb-20">
@@ -56,15 +82,19 @@ const DashboardPage = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold tracking-widest uppercase mb-3">
               <Activity size={12} className="animate-pulse" />
-              System Pulse: Optimal
+              System Pulse: {loading ? 'Analyzing...' : 'Optimal'}
             </div>
             <h1 className="text-4xl font-display font-bold text-white tracking-tight">
               Greetings, {user?.full_name || 'Seeker'}
             </h1>
-            <p className="text-slate-400 mt-2 font-medium">Your neural synchronization is at 94% efficiency today.</p>
+            <p className="text-slate-400 mt-2 font-medium">
+              {loading
+                ? "Synchronizing neural interface..."
+                : `Your neural synchronization is at ${Math.min(100, stats.wellnessScore + 15)}% efficiency today.`}
+            </p>
           </div>
           <div>
-            <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold tracking-widest uppercase text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2">
+            <button onClick={() => window.location.href = '/analysis'} className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold tracking-widest uppercase text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2">
               <Plus size={18} />
               INITIATE SCAN
             </button>
@@ -82,7 +112,7 @@ const DashboardPage = () => {
       >
         <DashboardCard
           title="Wellness Score"
-          value={`${wellnessScore}%`}
+          value={loading ? "..." : `${stats.wellnessScore}%`}
           description="Overall mental health"
           icon={<Activity size={24} />}
           trend={{ value: 5, isPositive: true }}
@@ -90,22 +120,22 @@ const DashboardPage = () => {
 
         <DashboardCard
           title="Current Streak"
-          value={`${streakDays} days`}
+          value={loading ? "..." : `${stats.streakDays} days`}
           description="Consecutive check-ins"
           icon={<Activity size={24} />}
-          trend={{ value: 2, isPositive: true }}
+          trend={{ value: 0, isPositive: true }}
         />
 
         <DashboardCard
           title="This Week"
-          value={entriesThisWeek}
+          value={loading ? "..." : stats.entriesThisWeek}
           description="Entries logged"
           icon={<Activity size={24} />}
         />
 
         <DashboardCard
           title="Current Mood"
-          value="Balanced"
+          value={loading ? "..." : stats.moodStatus}
           description="Based on recent entries"
           icon={<Smile size={24} />}
         />

@@ -90,18 +90,13 @@ const AnimatedSidebar = () => {
                                 whileTap={{ scale: 0.98 }}
                             >
                                 <item.icon size={22} className={cn(isActive && 'text-serenity-600 dark:text-aurora-400')} />
-                                <AnimatePresence>
-                                    {!isCollapsed && (
-                                        <motion.span
-                                            initial={{ opacity: 0, width: 0 }}
-                                            animate={{ opacity: 1, width: 'auto' }}
-                                            exit={{ opacity: 0, width: 0 }}
-                                            className="font-medium whitespace-nowrap overflow-hidden"
-                                        >
-                                            {item.label}
-                                        </motion.span>
-                                    )}
-                                </AnimatePresence>
+
+                                <span className={cn(
+                                    "font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+                                    isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                                )}>
+                                    {item.label}
+                                </span>
 
                                 {isActive && !isCollapsed && (
                                     <motion.div
@@ -124,14 +119,24 @@ const AnimatedSidebar = () => {
                             whileHover={{ x: 4 }}
                         >
                             <item.icon size={22} />
-                            {!isCollapsed && <span className="font-medium">{item.label}</span>}
+                            <span className={cn(
+                                "font-medium transition-all duration-300",
+                                isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
+                            )}>
+                                {item.label}
+                            </span>
                         </motion.div>
                     </Link>
                 ))}
 
                 <div className={cn("flex items-center gap-3 px-4 py-2", isCollapsed ? "justify-center" : "")}>
                     <ThemeToggle />
-                    {!isCollapsed && <span className="text-sm font-medium text-muted-foreground">Toggle Theme</span>}
+                    <span className={cn(
+                        "text-sm font-medium text-muted-foreground transition-all duration-300",
+                        isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
+                    )}>
+                        Toggle Theme
+                    </span>
                 </div>
 
                 <button
@@ -142,7 +147,12 @@ const AnimatedSidebar = () => {
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 >
                     <LogOut size={22} />
-                    {!isCollapsed && <span className="font-medium">Sign Out</span>}
+                    <span className={cn(
+                        "font-medium transition-all duration-300",
+                        isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
+                    )}>
+                        Sign Out
+                    </span>
                 </button>
             </div>
         </motion.div>

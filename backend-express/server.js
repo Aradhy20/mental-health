@@ -7,6 +7,13 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Default Configuration Fallbacks (Robustness for missing .env)
+if (!process.env.AI_TEXT_SERVICE_URL) process.env.AI_TEXT_SERVICE_URL = 'http://localhost:8002';
+if (!process.env.AI_VOICE_SERVICE_URL) process.env.AI_VOICE_SERVICE_URL = 'http://localhost:8003';
+if (!process.env.AI_FACE_SERVICE_URL) process.env.AI_FACE_SERVICE_URL = 'http://localhost:8004';
+if (!process.env.JWT_SECRET) process.env.JWT_SECRET = 'mindful_ai_secret_key_2025';
+if (!process.env.FRONTEND_URL) process.env.FRONTEND_URL = 'http://localhost:3000';
+
 const app = express();
 
 // =======================
