@@ -1,36 +1,26 @@
-# 🚀 Deployment Alternatives
+# 🚀 Final Deployment Step (Koyeb)
 
-Since Render is giving you trouble (likely due to cold-starts or memory limits), here are the best alternatives for your **AI-Heavy "Mic" Project**.
+You have provided your MongoDB Atlas connection string! We are ready to launch.
 
-## 🥇 Option 1: Koyeb (Fastest & Best for Docker)
-Koyeb is a modern platform that often performs faster than Render and handles Docker containers very well.
+## ⚠️ CRITICAL STEP: The Password
+The connection string you gave has a placeholder: `<db_password>`.
+**You MUST replace this with your actual password** inside the Koyeb dashboard.
 
-### [Click to Deploy to Koyeb](https://app.koyeb.com/deploy?type=git&repository=github.com/Aradhy20/mental-health&branch=main&env[MONGO_DETAILS]=&env[MONGO_DB_NAME]=mental_health_db&env[PORT]=8000)
+## 🔗 Your Custom Deployment Link
 
-**Instructions:**
+**[👉 Click Here to Deploy to Koyeb](https://app.koyeb.com/deploy?type=git&repository=github.com/Aradhy20/mental-health&branch=main&env[MONGO_DETAILS]=mongodb%2Bsrv%3A%2F%2Fmentalhealth_db_user%3A%3Cdb_password%3E%40cluster0.8tevbr6.mongodb.net%2F%3FappName%3DCluster0&env[MONGO_DB_NAME]=mental_health_db&env[PORT]=8000)**
+
+### Instructions:
 1.  Click the link above.
-2.  Login with GitHub.
-3.  Fill in the **MONGO_DETAILS** value (Your connection string).
-4.  Launch.
+2.  Login to Koyeb.
+3.  Look for the **MONGO_DETAILS** field.
+4.  It will say: `mongodb+srv://mentalhealth_db_user:<db_password>@cluster0...`
+5.  **DELETE** `<db_password>` and type your **REAL PASSWORD** (the one you set for `mentalhealth_db_user`).
+    *   *Example*: if password is `secret123`, it should look like `...user:secret123@cluster0...`
+6.  Click **Deploy**.
 
-## 🥈 Option 2: Railway (Most Stable, but Trial Only)
-Railway is extremely stable but gives you a trial period ($5 credit).
-
-1.  Go to [Railway.app](https://railway.app/new).
-2.  Select "Deploy from GitHub repo".
-3.  Select your `mental-health` repo.
-4.  Add Variables: `MONGO_DETAILS`.
-
-## 🥉 Option 3: HuggingFace Spaces (Best for AI)
-If your app crashes due to "Out of Memory" (RAM) because of the AI models, **HuggingFace Spaces** is the ONLY free platform that gives you 16GB RAM.
-
-1.  Create a new Space at [huggingface.co/spaces](https://huggingface.co/spaces).
-2.  Select **Docker** SDK.
-3.  Upload your files.
-4.  This is highly recommended if the Voice/Face analysis crashes on other platforms.
-
-## 🎤 Fixing "Mic" Issues
-If your "Mic project" issues are about the microphone not working:
-1.  **HTTPS is Required**: Mic access is blocked on HTTP. Ensure you visit the `https://` version of your deployed site.
-2.  **Permissions**: Check browser permission settings.
-3.  **Cold Start**: On free tiers, the *first* request takes 50s. The mic api call might timeout. **Solution**: Use the dashboard to "Ping" the backend first, then try the mic.
+## 🎤 Verifying Microphone
+After deployment, wait 5 minutes.
+Visit the URL (e.g., `https://mental-health-app.koyeb.app`).
+Ensure it starts with `https://`.
+Go to the Assistant/Voice page and allow microphone permissions.
